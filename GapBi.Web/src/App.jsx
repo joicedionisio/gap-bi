@@ -1,122 +1,118 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import "./App.css";
+
+const API = "http://localhost:5106/api/dashboard";
+
+const fmt = (value) => value?.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchData = async () => {
+    try {
+      const res = await axios.get(API);
+      setData(res.data);
+      setError(null);
+    } catch {
+      setError("Erro ao carregar os dados.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await axios.post("http://localhost:5106/api/dashboard/sync", {}, { timeout: 60000 });
+      await fetchData();
+    } catch {
+      setError("Erro na sincronização.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  if (loading) return <div className="loading">Carregando...</div>;
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="container">
+      <header>
+        <h1>📊 GAP BI Dashboard</h1>
+        <div className="sync-area">
+          <button onClick={handleSync} disabled={syncing}>
+            {syncing ? "Sincronizando..." : "🔄 Sincronizar dados"}
+          </button>
+          {data?.lastSyncAt && (
+            <span>Última sincronização: {new Date(data.lastSyncAt).toLocaleString("pt-BR")}</span>
+          )}
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
+      {error && <div className="error">{error}</div>}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <div className="cards">
+        <div className="card">
+          <h3>Pedidos</h3>
+          <p>{data?.totalOrders}</p>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
+        <div className="card">
+          <h3>Faturamento Bruto</h3>
+          <p>R$ {fmt(data?.grossRevenue)}</p>
         </div>
-      </section>
+        <div className="card">
+          <h3>Faturamento Líquido</h3>
+          <p>R$ {fmt(data?.netRevenue)}</p>
+        </div>
+        <div className="card">
+          <h3>Desconto Concedido</h3>
+          <p>R$ {fmt(data?.totalDiscount)} ({fmt(data?.discountPercentage)}%)</p>
+        </div>
+        <div className="card">
+          <h3>Ticket Médio</h3>
+          <p>R$ {fmt(data?.averageTicket)}</p>
+        </div>
+      </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <div className="charts">
+        <div className="chart-box">
+          <h2>Faturamento por Categoria</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={data?.revenueByCategory}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="category" />
+              <YAxis />
+              <Tooltip formatter={(v) => `R$ ${fmt(v)}`} />
+              <Bar dataKey="netRevenue" fill="#4f46e5" name="Faturamento Líquido" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="chart-box">
+          <h2>Top 5 Clientes</h2>
+          <table>
+            <thead>
+              <tr><th>Cliente</th><th>Faturamento</th></tr>
+            </thead>
+            <tbody>
+              {data?.topCustomers?.map((c, i) => (
+                <tr key={i}>
+                  <td>{c.fullName}</td>
+                  <td>R$ {fmt(c.netRevenue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default App;

@@ -42,7 +42,7 @@ public class SyncService
 
     private async Task SyncProductsAsync()
     {
-        var response = await _httpClient.GetStringAsync("https://dummyjson.com/products?limit=100");
+        var response = await _httpClient.GetStringAsync("https://dummyjson.com/products?limit=200");
         var json = JsonDocument.Parse(response);
         var products = json.RootElement.GetProperty("products");
 
@@ -66,7 +66,7 @@ public class SyncService
 
     private async Task SyncCustomersAsync()
     {
-        var response = await _httpClient.GetStringAsync("https://dummyjson.com/users?limit=100");
+        var response = await _httpClient.GetStringAsync("https://dummyjson.com/users?limit=200");
         var json = JsonDocument.Parse(response);
         var users = json.RootElement.GetProperty("users");
 
@@ -90,16 +90,14 @@ public class SyncService
 
     private async Task SyncCartsAsync()
     {
-        var response = await _httpClient.GetStringAsync("https://dummyjson.com/carts?limit=100");
+        var response = await _httpClient.GetStringAsync("https://dummyjson.com/carts?limit=200");
         var json = JsonDocument.Parse(response);
         var carts = json.RootElement.GetProperty("carts");
 
         foreach (var c in carts.EnumerateArray())
         {
             var id = c.GetProperty("id").GetInt32();
-            var existing = await _context.Carts
-                .Include(x => x.Items)
-                .FirstOrDefaultAsync(x => x.Id == id);
+            var existing = await _context.Carts.FindAsync(id);
 
             if (existing == null)
             {
@@ -119,7 +117,7 @@ public class SyncService
                         ProductId = item.GetProperty("id").GetInt32(),
                         Quantity = item.GetProperty("quantity").GetInt32(),
                         Price = item.GetProperty("price").GetDecimal(),
-                        DiscountedPrice = item.GetProperty("discountedPrice").GetDecimal()
+                        DiscountedPrice = item.GetProperty("discountedTotal").GetDecimal()
                     });
                 }
                 _context.Carts.Add(cart);
